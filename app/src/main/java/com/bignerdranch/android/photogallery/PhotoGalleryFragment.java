@@ -1,8 +1,10 @@
 package com.bignerdranch.android.photogallery;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
@@ -18,8 +20,6 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-
-import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +40,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
         setHasOptionsMenu(true);
+
         updateItems();
 
         Handler responseHandler = new Handler();
@@ -48,7 +49,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
                 new ThumbnailDownloader.ThumbnailDownloadListener<PhotoHolder>() {
                     @Override
                     public void onThumbnailDownloaded(PhotoHolder photoHolder, Bitmap bitmap) {
-                        Drawable drawable = new BitmapDrawable(getResources(),bitmap);
+                        Drawable drawable = new BitmapDrawable(getResources(), bitmap);
                         photoHolder.bindDrawable(drawable);
                     }
                 }
@@ -56,7 +57,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
         mThumbnailDownloader.start();
         mThumbnailDownloader.getLooper();
         Log.i(TAG, "Background thread started");
-        }
+    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -72,7 +73,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
     }
 
     @Override
-    public void onDestroyView(){
+    public void onDestroyView() {
         super.onDestroyView();
         mThumbnailDownloader.clearQueue();
     }
@@ -85,20 +86,17 @@ public class PhotoGalleryFragment extends VisibleFragment {
     }
 
     @Override
-    public void onCreateOptionsMenu(Menu menu, MenuInflater menuInflater){
-
+    public void onCreateOptionsMenu(Menu menu, MenuInflater menuInflater) {
         super.onCreateOptionsMenu(menu, menuInflater);
-
         menuInflater.inflate(R.menu.fragment_photo_gallery, menu);
 
         MenuItem searchItem = menu.findItem(R.id.menu_item_search);
-
         final SearchView searchView = (SearchView) searchItem.getActionView();
 
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String s) {
-                Log.d(TAG, "QueryTextSubmit: "+s);
+                Log.d(TAG, "QueryTextSubmit: " + s);
                 QueryPreferences.setStoredQuery(getActivity(), s);
                 updateItems();
                 return true;
@@ -106,7 +104,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
 
             @Override
             public boolean onQueryTextChange(String s) {
-                Log.d(TAG, "QueryTextChange: "+s );
+                Log.d(TAG, "QueryTextChange: " + s);
                 return false;
             }
         });
@@ -119,30 +117,28 @@ public class PhotoGalleryFragment extends VisibleFragment {
             }
         });
 
-        MenuItem toggleItem = menu.
-                findItem(R.id.menu_item_toggle_polling);
-        if (PollService.isServiceAlarmOn(getActivity())){
+        MenuItem toggleItem = menu.findItem(R.id.menu_item_toggle_polling);
+        if (PollService.isServiceAlarmOn(getActivity())) {
             toggleItem.setTitle(R.string.stop_polling);
         } else {
             toggleItem.setTitle(R.string.start_polling);
         }
     }
+
     @Override
-    public boolean onOptionsItemSelected(MenuItem item){
-        switch (item.getItemId()){
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
             case R.id.menu_item_clear:
                 QueryPreferences.setStoredQuery(getActivity(), null);
                 updateItems();
                 return true;
             case R.id.menu_item_toggle_polling:
-                boolean shouldStartAlarm = !PollService
-                        .isServiceAlarmOn(getActivity());
+                boolean shouldStartAlarm = !PollService.isServiceAlarmOn(getActivity());
                 PollService.setServiceAlarm(getActivity(), shouldStartAlarm);
                 getActivity().invalidateOptionsMenu();
                 return true;
-
-                default:
-                    return super.onOptionsItemSelected(item);
+            default:
+                return super.onOptionsItemSelected(item);
         }
     }
 
@@ -157,24 +153,32 @@ public class PhotoGalleryFragment extends VisibleFragment {
         }
     }
 
-    private class PhotoHolder extends RecyclerView.ViewHolder {
+    private class PhotoHolder extends RecyclerView.ViewHolder
+            implements View.OnClickListener{
         private ImageView mItemImageView;
+        private GalleryItem mGalleryItem;
 
         public PhotoHolder(View itemView) {
             super(itemView);
 
-            mItemImageView = (ImageView)itemView.findViewById(R.id.
-            item_image_view);
+            mItemImageView = (ImageView) itemView.findViewById(R.id.item_image_view);
+            itemView.setOnClickListener(this);
         }
 
-        public void bindGalleryItem(GalleryItem galleryItem){
-            Picasso.get().load(galleryItem.getUrl())
-                    .placeholder(R.drawable.bill_up_close)
-                    .into(mItemImageView);
-        }
-
-        public void bindDrawable(Drawable drawable){
+        public void bindDrawable(Drawable drawable) {
             mItemImageView.setImageDrawable(drawable);
+        }
+
+        public void bindGalleryItem(GalleryItem galleryItem) {
+            mGalleryItem = galleryItem;
+        }
+
+        @Override
+        public void onClick(View v) {
+            Intent i = PhotoPageActivity.
+                    newIntent(getActivity(),
+                            mGalleryItem.getPhotoPageUri());
+            startActivity(i);
         }
     }
 
@@ -189,19 +193,17 @@ public class PhotoGalleryFragment extends VisibleFragment {
         @Override
         public PhotoHolder onCreateViewHolder(ViewGroup viewGroup, int viewType) {
             LayoutInflater inflater = LayoutInflater.from(getActivity());
-            View view = inflater.inflate(R.layout.list_item_gallery,
-                    viewGroup,false);
+            View view = inflater.inflate(R.layout.list_item_gallery, viewGroup, false);
             return new PhotoHolder(view);
         }
 
         @Override
         public void onBindViewHolder(PhotoHolder photoHolder, int position) {
             GalleryItem galleryItem = mGalleryItems.get(position);
-            Drawable placeholder = getResources().getDrawable(R.
-                    drawable.bill_up_close);
             photoHolder.bindGalleryItem(galleryItem);
-            mThumbnailDownloader.queueThumbnail(photoHolder,
-                    galleryItem.getUrl());
+            Drawable placeholder = getResources().getDrawable(R.drawable.bill_up_close);
+            photoHolder.bindDrawable(placeholder);
+            mThumbnailDownloader.queueThumbnail(photoHolder, galleryItem.getUrl());
         }
 
         @Override
@@ -210,16 +212,17 @@ public class PhotoGalleryFragment extends VisibleFragment {
         }
     }
 
-    private class FetchItemsTask extends
-            AsyncTask<Void,Void,List<GalleryItem>> {
-
+    private class FetchItemsTask extends AsyncTask<Void,Void,List<GalleryItem>> {
         private String mQuery;
+
         public FetchItemsTask(String query) {
             mQuery = query;
         }
+
         @Override
         protected List<GalleryItem> doInBackground(Void... params) {
-            if (mQuery == null){
+
+            if (mQuery == null) {
                 return new FlickrFetchr().fetchRecentPhotos();
             } else {
                 return new FlickrFetchr().searchPhotos(mQuery);
@@ -231,5 +234,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
             mItems = items;
             setupAdapter();
         }
+
     }
+
 }
